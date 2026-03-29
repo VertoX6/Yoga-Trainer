@@ -37,44 +37,61 @@ def recognise():
             return None
 
 
+mp_pose = mp.solutions.pose
+mp_drawing = mp.solutions.drawing_utils
+cap = cv2.VideoCapture(0)
+pose = mp_pose.Pose()
+
 say_and_print("Witaj w personalnym trenerze yogi")
 
 say_and_print("Co chcesz zrobić?")
 
-command = recognise()
+while cap.isOpened():
+    ret, frame = cap.read()
+    if not ret:
+        break
 
+    frame = cv2.flip(frame, 1)
+
+    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    results = pose.process(rgb)
+
+    gesture = "?"
+
+    if results.pose_landmarks:
+        landmarks = results.pose_landmarks.landmark
+
+        l_shoulder = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER]
+        r_shoulder = landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER]
+        l_elbow = landmarks[mp_pose.PoseLandmark.LEFT_ELBOW]
+        r_elbow = landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW]
+        l_wrist = landmarks[mp_pose.PoseLandmark.LEFT_WRIST]
+        r_wrist = landmarks[mp_pose.PoseLandmark.RIGHT_WRIST]
+        r_ankle = landmarks[mp_pose.PoseLandmark.RIGHT_ANKLE]
+
+        #rysowanie szkieletu
+        mp_drawing.draw_landmarks(
+            frame,
+            results.pose_landmarks,
+            mp_pose.POSE_CONNECTIONS
+        )
+
+    cv2.putText(frame, f"Litera: {gesture}", (30, 60),
+                cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3)
+
+    cv2.imshow("Kamera", frame)
+
+    if cv2.waitKey(1) & 0xFF == 27:
+        break
+
+cap.release()
+cv2.destroyAllWindows()
+
+
+#command = recognise()
 #say_and_print("ej")
 #text = recognise()
 
-# while True:
-#     speak("siema")
-    # text = recognise()
-    #
-    # if "bywaj" in text or "goodbye" in text:
-    #     say_and_print("Koniec programu")
-    #     break
-    #
-    # if "polski" in text or "polish" in text:
-    #     say_and_print("Wybrałeś polski")
-    #     translator = Translator(from_lang="pl", to_lang="en")
-    #
-    #     text_pl = recognise("Powiedz coś po polsku: ")
-    #
-    #     translation = translator.translate(text_pl)
-    #     say_and_print("Tłumaczenie: " + translation)
-    #
-    # elif "angielski" in text or "english" in text:
-    #     say_and_print("Wybrałeś angielski")
-    #     translator = Translator(from_lang="en", to_lang="pl")
-    #
-    #     text_en = recognise("Say something in English: ")
-    #
-    #     translation = translator.translate(text_en)
-    #     say_and_print("Tłumaczenie: " + translation)
-
-# import cv2
-# import mediapipe as mp
-#
 # mp_pose = mp.solutions.pose
 # mp_drawing = mp.solutions.drawing_utils
 #
