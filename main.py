@@ -120,7 +120,7 @@ while cap.isOpened():
 
     gesture = pose_list[current_pose_index]
 
-    # zmiana pozy co określony czas
+    # zmiana pozy
     if time.time() - last_pose_change_time > pose_time:
         current_pose_index = (current_pose_index + 1) % len(pose_list)
         last_pose_change_time = time.time()
@@ -135,7 +135,7 @@ while cap.isOpened():
         r_wrist = landmarks[mp_pose.PoseLandmark.RIGHT_WRIST]
         r_ankle = landmarks[mp_pose.PoseLandmark.RIGHT_ANKLE]
 
-        #rysowanie szkieletu
+#rysowanie
         mp_drawing.draw_landmarks(
             frame,
             results.pose_landmarks,
