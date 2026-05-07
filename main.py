@@ -4,6 +4,43 @@ import pyttsx3
 import time
 import cv2
 import mediapipe as mp
+from PyQt6.QtWidgets import QApplication, QWidget, QPushButton
+#stosujemy pyqt6 do gui
+
+app = QApplication([])
+
+window = QWidget()
+window.setWindowTitle("Personalny Trener Yogi")
+window.resize(400, 300)
+
+start_button = QPushButton("Start treningu", parent=window)
+start_button.setGeometry(100, 80, 200, 40)
+
+stop_button = QPushButton("Zatrzymaj", parent=window)
+stop_button.setGeometry(100, 140, 200, 40)
+
+status_button = QPushButton("Status: STOP", parent=window)
+status_button.setGeometry(100, 200, 200, 40)
+status_button.setEnabled(False)
+
+running = False
+
+def start_training():
+    global running
+    running = True
+    status_button.setText("Status: START")
+    say_and_print("Rozpoczynam trening")
+
+def stop_training():
+    global running
+    running = False
+    status_button.setText("Status: STOP")
+    say_and_print("Zatrzymano trening")
+
+start_button.clicked.connect(start_training)
+stop_button.clicked.connect(stop_training)
+
+window.show()
 
 engine = pyttsx3.init()
 
@@ -47,6 +84,11 @@ say_and_print("Witaj w personalnym trenerze yogi")
 say_and_print("Co chcesz zrobić?")
 
 while cap.isOpened():
+    app.processEvents()
+
+    if not running:
+        continue
+
     ret, frame = cap.read()
     if not ret:
         break
@@ -76,7 +118,7 @@ while cap.isOpened():
             mp_pose.POSE_CONNECTIONS
         )
 
-    cv2.putText(frame, f"Litera: {gesture}", (30, 60),
+    cv2.putText(frame, f"Poza: {gesture}", (30, 60),
                 cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3)
 
     cv2.imshow("Kamera", frame)
