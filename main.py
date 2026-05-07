@@ -4,7 +4,9 @@ import pyttsx3
 import time
 import cv2
 import mediapipe as mp
-from PyQt6.QtWidgets import QApplication, QWidget, QPushButton
+from PyQt6.QtWidgets import QApplication, QWidget, QPushButton, QLabel, QVBoxLayout
+from PyQt6.QtCore import Qt
+import poses
 #stosujemy pyqt6 do gui
 
 app = QApplication([])
@@ -13,29 +15,48 @@ window = QWidget()
 window.setWindowTitle("Personalny Trener Yogi")
 window.resize(400, 300)
 
-start_button = QPushButton("Start treningu", parent=window)
-start_button.setGeometry(100, 80, 200, 40)
+layout = QVBoxLayout()
 
-stop_button = QPushButton("Zatrzymaj", parent=window)
-stop_button.setGeometry(100, 140, 200, 40)
+title = QLabel("Personalny Trener Yogi")
+title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+title.setStyleSheet("font-size: 18px; font-weight: bold;")
 
-status_button = QPushButton("Status: STOP", parent=window)
-status_button.setGeometry(100, 200, 200, 40)
-status_button.setEnabled(False)
+status_label = QLabel("Status: STOP")
+status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+status_label.setStyleSheet("font-size: 14px; color: red;")
+
+
+start_button = QPushButton("Start treningu")
+start_button.setStyleSheet("padding: 10px; font-size: 14px;")
+
+stop_button = QPushButton("Zatrzymaj")
+stop_button.setStyleSheet("padding: 10px; font-size: 14px;")
+
+layout.addWidget(title)
+layout.addSpacing(20)
+layout.addWidget(status_label)
+layout.addSpacing(20)
+layout.addWidget(start_button)
+layout.addWidget(stop_button)
+
+window.setLayout(layout)
 
 running = False
 
 def start_training():
     global running
     running = True
-    status_button.setText("Status: START")
+    status_label.setText("Status: START")
+    status_label.setStyleSheet("font-size: 14px; color: green;")
     say_and_print("Rozpoczynam trening")
 
 def stop_training():
     global running
     running = False
-    status_button.setText("Status: STOP")
+    status_label.setText("Status: STOP")
+    status_label.setStyleSheet("font-size: 14px; color: red;")
     say_and_print("Zatrzymano trening")
+    exit(1)
 
 start_button.clicked.connect(start_training)
 stop_button.clicked.connect(stop_training)
@@ -43,6 +64,7 @@ stop_button.clicked.connect(stop_training)
 window.show()
 
 engine = pyttsx3.init()
+
 
 #mowa - pomocnicza
 def speak(text):
@@ -73,22 +95,20 @@ def recognise():
             print(e)
             return None
 
-
 mp_pose = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
 cap = cv2.VideoCapture(0)
 pose = mp_pose.Pose()
 
-say_and_print("Witaj w personalnym trenerze yogi")
 
-say_and_print("Co chcesz zrobić?")
-
+pose_list = ["Cow Pose", "Cat Pose", "Downward Facing Dog", "Upward Facing Dog", "Child Pose"]
+current_pose_index = 0
+last_pose_change_time = time.time()
+pose_time = 20
 while cap.isOpened():
     app.processEvents()
-
     if not running:
         continue
-
     ret, frame = cap.read()
     if not ret:
         break
@@ -98,8 +118,12 @@ while cap.isOpened():
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     results = pose.process(rgb)
 
-    gesture = "?"
+    gesture = pose_list[current_pose_index]
 
+    # zmiana pozy co określony czas
+    if time.time() - last_pose_change_time > pose_time:
+        current_pose_index = (current_pose_index + 1) % len(pose_list)
+        last_pose_change_time = time.time()
     if results.pose_landmarks:
         landmarks = results.pose_landmarks.landmark
 
@@ -118,8 +142,8 @@ while cap.isOpened():
             mp_pose.POSE_CONNECTIONS
         )
 
-    cv2.putText(frame, f"Poza: {gesture}", (30, 60),
-                cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3)
+    cv2.putText(frame, f"Aktualna Poza: {gesture}", (30, 60),
+                cv2.FONT_HERSHEY_SIMPLEX, 1.5, (151, 33, 64), 3)
 
     cv2.imshow("Kamera", frame)
 
@@ -194,62 +218,3 @@ cv2.destroyAllWindows()
 # cap = cv2.VideoCapture(0)
 # pose = mp_pose.Pose()
 #
-# while cap.isOpened():
-#     ret, frame = cap.read()
-#     if not ret:
-#         break
-#
-#     frame = cv2.flip(frame, 1)
-#
-#     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-#     results = pose.process(rgb)
-#
-#     gesture = "?"
-#
-#     if results.pose_landmarks:
-#         landmarks = results.pose_landmarks.landmark
-#
-#         l_sh = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER]
-#         r_sh = landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER]
-#         l_el = landmarks[mp_pose.PoseLandmark.LEFT_ELBOW]
-#         r_el = landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW]
-#         l_wr = landmarks[mp_pose.PoseLandmark.LEFT_WRIST]
-#         r_wr = landmarks[mp_pose.PoseLandmark.RIGHT_WRIST]
-#         r_ankle = landmarks[mp_pose.PoseLandmark.RIGHT_ANKLE]
-#
-#         nose = landmarks[mp_pose.PoseLandmark.NOSE]
-#         r_ear = landmarks[mp_pose.PoseLandmark.RIGHT_EAR]
-#         l_ear = landmarks[mp_pose.PoseLandmark.LEFT_EAR]
-#         r_hip = landmarks[mp_pose.PoseLandmark.RIGHT_HIP]
-#         l_hip = landmarks[mp_pose.PoseLandmark.LEFT_HIP]
-#
-#         # --- rozpoznawanie gestów ---
-#         if is_T(l_sh, l_el, l_wr, r_sh, r_el, r_wr):
-#             gesture = "T"
-#         elif is_Y(l_sh, l_wr, r_sh, r_wr):
-#             gesture = "Y"
-#         elif is_I(l_sh, l_wr, r_sh, r_wr):
-#             gesture = "I"
-#         elif is_L(l_sh, l_wr, r_sh, r_wr):
-#             gesture = "L"
-#         elif is_K(l_sh, l_wr, r_sh, r_wr):
-#             gesture = "K"
-#         elif is_P(l_wr, l_sh, r_wr, nose, r_ear):
-#             gesture = "P"
-#
-#         mp_drawing.draw_landmarks(
-#             frame,
-#             results.pose_landmarks,
-#             mp_pose.POSE_CONNECTIONS
-#         )
-#
-#     cv2.putText(frame, f"Litera: {gesture}", (30, 60),
-#                 cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3)
-#
-#     cv2.imshow("Kamera", frame)
-#
-#     if cv2.waitKey(1) & 0xFF == 27:
-#         break
-#
-# cap.release()
-# cv2.destroyAllWindows()
