@@ -42,20 +42,21 @@ layout.addWidget(stop_button)
 window.setLayout(layout)
 
 running = False
-
+last_pose_change_time = None
 def start_training():
-    global running
+    global running, last_pose_change_time
     running = True
+    last_pose_change_time = time.time()
     status_label.setText("Status: START")
     status_label.setStyleSheet("font-size: 14px; color: green;")
-    say_and_print("Rozpoczynam trening")
+    # say_and_print("Rozpoczynam trening")
 
 def stop_training():
     global running
     running = False
     status_label.setText("Status: STOP")
     status_label.setStyleSheet("font-size: 14px; color: red;")
-    say_and_print("Zatrzymano trening")
+    # say_and_print("Zatrzymano trening")
     exit(1)
 
 start_button.clicked.connect(start_training)
@@ -77,7 +78,21 @@ def say_and_print(text):
     print(text)
     speak(text)
 
-#rozpoznawanie głosu
+#poprawnosc Cow Pose
+def check_cow_pose(landmarks):
+    l_sh = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER]
+    l_hip = landmarks[mp_pose.PoseLandmark.LEFT_HIP]
+    l_knee = landmarks[mp_pose.PoseLandmark.LEFT_KNEE]
+    l_wr = landmarks[mp_pose.PoseLandmark.LEFT_WRIST]
+    nose = landmarks[mp_pose.PoseLandmark.NOSE]
+
+    head_up = nose.y < l_sh.y
+    back_alignment = abs(l_sh.y - l_hip.y) < 0.15
+    arms_vertical = abs(l_sh.x - l_wr.x) < 0.1
+    legs_vertical = abs(l_hip.x - l_knee.x) < 0.1
+    return head_up and back_alignment and arms_vertical and legs_vertical
+
+#rozpoznawanie glosu
 def recognise():
     r = sr.Recognizer()
     with sr.Microphone() as source:
@@ -100,11 +115,13 @@ mp_drawing = mp.solutions.drawing_utils
 cap = cv2.VideoCapture(0)
 pose = mp_pose.Pose()
 
-
 pose_list = ["Cow Pose", "Cat Pose", "Downward Facing Dog", "Upward Facing Dog", "Child Pose"]
 current_pose_index = 0
-last_pose_change_time = time.time()
 pose_time = 20
+change_pose_timeout = 8
+is_changing_pose = False
+last_pose_change_time = None
+
 while cap.isOpened():
     app.processEvents()
     if not running:
@@ -120,10 +137,27 @@ while cap.isOpened():
 
     gesture = pose_list[current_pose_index]
 
-    # zmiana pozy
-    if time.time() - last_pose_change_time > pose_time:
-        current_pose_index = (current_pose_index + 1) % len(pose_list)
-        last_pose_change_time = time.time()
+    if last_pose_change_time is None:
+        elapsed_time = 0
+    else:
+        elapsed_time = time.time() - last_pose_change_time
+
+    remaining_time = int(pose_time - elapsed_time)
+
+    if elapsed_time >= pose_time and not is_changing_pose:
+        is_changing_pose = True
+        change_pose_start_time = time.time()
+        # say_and_print(f"Przygotuj sie. Nastepna poza: {pose_list[(current_pose_index + 1) % len(pose_list)]}")
+
+    if is_changing_pose:
+        change_remaining = int(change_pose_timeout - (time.time() - change_pose_start_time))
+
+        if change_remaining <= 0:
+            current_pose_index = (current_pose_index + 1) % len(pose_list)
+            last_pose_change_time = time.time()
+            is_changing_pose = False
+            # say_and_print(f"Start pozy: {pose_list[current_pose_index]}")
+
     if results.pose_landmarks:
         landmarks = results.pose_landmarks.landmark
 
@@ -135,16 +169,51 @@ while cap.isOpened():
         r_wrist = landmarks[mp_pose.PoseLandmark.RIGHT_WRIST]
         r_ankle = landmarks[mp_pose.PoseLandmark.RIGHT_ANKLE]
 
-#rysowanie
+        #poprawnosc pozy
+        is_correct = False
+
+        if gesture == "Cow Pose":
+            is_correct = check_cow_pose(landmarks)
+
+        #rysowanie
         mp_drawing.draw_landmarks(
             frame,
             results.pose_landmarks,
             mp_pose.POSE_CONNECTIONS
         )
+        color = (0, 255, 0) if is_correct else (0, 0, 255)
+        msg = "POZYCJA POPRAWNA" if is_correct else "POPRAW SIE"
+
+        cv2.putText(frame, msg, (30, 160),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1,
+                    (0, 0, 0), 6)
+        cv2.putText(frame, msg, (30, 160),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1,
+                    color, 3)
+
+    next_pose_index = (current_pose_index + 1) % len(pose_list)
+    next_pose = pose_list[next_pose_index]
+
+    if not is_changing_pose:
+        change_remaining = 0
+    #tekst
+    if is_changing_pose:
+        time_text = "Zmien poze w ciagu: " + str(change_remaining) + " s"
+    else:
+        time_text = "Pozostaly czas: " + str(max(0, remaining_time)) + " s"
 
     cv2.putText(frame, f"Aktualna Poza: {gesture}", (30, 60),
-                cv2.FONT_HERSHEY_SIMPLEX, 1.5, (151, 33, 64), 3)
-
+                cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 0), 8)
+    cv2.putText(frame, f"Nastepna poza: {next_pose}", (30, 210),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 6)
+    cv2.putText(frame, f"Aktualna Poza: {gesture}", (30, 60),
+                cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 105, 180), 4)
+    cv2.putText(frame, time_text, (30, 110),
+                cv2.FONT_HERSHEY_SIMPLEX, 1.1, (0, 0, 0), 6)
+    cv2.putText(frame, time_text, (30, 110),
+                cv2.FONT_HERSHEY_SIMPLEX, 1.1, (186, 85, 211), 3)
+    cv2.putText(frame, f"Nastepna poza: {next_pose}", (30, 210),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 191, 255), 3)
     cv2.imshow("Kamera", frame)
 
     if cv2.waitKey(1) & 0xFF == 27:
@@ -152,69 +221,3 @@ while cap.isOpened():
 
 cap.release()
 cv2.destroyAllWindows()
-
-
-#command = recognise()
-#say_and_print("ej")
-#text = recognise()
-
-# mp_pose = mp.solutions.pose
-# mp_drawing = mp.solutions.drawing_utils
-#
-# def is_horizontal(y1, y2, tol=0.05):
-#     return abs(y1 - y2) < tol
-#
-# def is_above(p1, p2):
-#     return p1.y < p2.y
-#
-# def is_below(p1, p2):
-#     return p1.y > p2.y
-#
-# def is_vertical(x1, x2, tol=0.05):
-#     return abs(x1 - x2) < tol
-#
-# # --- gesty ---
-# def is_T(l_sh, l_el, l_wr, r_sh, r_el, r_wr):
-#     return (
-#         is_horizontal(l_sh.y, l_el.y) and
-#         is_horizontal(l_el.y, l_wr.y) and
-#         is_horizontal(r_sh.y, r_el.y) and
-#         is_horizontal(r_el.y, r_wr.y)
-#     )
-#
-# def is_I(l_sh, l_wr, r_sh, r_wr):
-#     return (
-#         is_below(l_wr, l_sh) and
-#         is_below(r_wr, r_sh)
-#     )
-#
-# def is_Y(l_sh, l_wr, r_sh, r_wr):
-#     return (
-#         is_above(l_wr, l_sh) and
-#         is_above(r_wr, r_sh)
-#     )
-#
-# def is_L(l_sh, l_wr, r_sh, r_wr):
-#     prawa_gora = is_above(r_wr, r_sh)
-#     lewa_poziom = is_horizontal(l_sh.y, l_wr.y)
-#     return prawa_gora and lewa_poziom
-#
-# def is_P(l_wr, l_sh, r_wr, nose, r_ear, tol=0.05):
-#     left_down = l_wr.y > l_sh.y + 0.05
-#     near_head_x = abs(r_wr.x - r_ear.x) < tol
-#     near_head_y = abs(r_wr.y - r_ear.y) < tol
-#     right_near_head = near_head_x and near_head_y
-#     return left_down and right_near_head
-#
-# def is_K(l_sh, l_wr, r_sh, r_wr):
-#     return (
-#         is_above(l_wr, l_sh) and
-#         is_below(r_wr, r_sh)
-#         and is_above(l_wr, l_sh) and is_below(r_wr, r_sh)
-#         and is_vertical(l_wr.x, r_wr.x)
-#     )
-#
-#
-# cap = cv2.VideoCapture(0)
-# pose = mp_pose.Pose()
-#
