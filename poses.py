@@ -2,6 +2,7 @@ import numpy as np
 
 
 def calculate_angle(a, b, c):
+    """Oblicza kąt w stopniach między trzema punktami (b jest wierzchołkiem)."""
     a = np.array([a.x, a.y])
     b = np.array([b.x, b.y])
     c = np.array([c.x, c.y])
@@ -15,42 +16,67 @@ def calculate_angle(a, b, c):
 
 
 def cow_pose(landmarks, mp_pose):
-    # Punkty potrzebne do analizy (widok z boku)
+    # Głowa w górę, plecy w dół, kąt w biodrach ok. 90 stopni
     l_sh = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER]
     l_hip = landmarks[mp_pose.PoseLandmark.LEFT_HIP]
     l_knee = landmarks[mp_pose.PoseLandmark.LEFT_KNEE]
-    l_wr = landmarks[mp_pose.PoseLandmark.LEFT_WRIST]
     nose = landmarks[mp_pose.PoseLandmark.NOSE]
 
-    # 1. Sprawdzenie kąta w biodrze (powinien być bliski 90 stopni)
-    # Wykorzystujemy biodro jako wierzchołek między barkiem a kolanem
     hip_angle = calculate_angle(l_sh, l_hip, l_knee)
-
-    # 2. Czy głowa jest uniesiona? (Nose.y powinno być mniejsze niż Shoulder.y)
-    head_up = nose.y < l_sh.y
-
-    # 3. Czy ramiona są proste? (Kąt w łokciu - opcjonalnie, lub relacja X bark-nadgarstek)
-    # Sprawdzamy czy nadgarstek jest mniej więcej pod barkiem
-    arms_aligned = abs(l_sh.x - l_wr.x) < 0.15
-
-    # Logika sukcesu: Biodra zgięte, głowa w górze, ramiona stabilne
-    if 70 < hip_angle < 110 and head_up and arms_aligned:
-        return True
-    return False
+    return 70 < hip_angle < 110 and nose.y < l_sh.y
 
 
-# Puste szablony dla reszty, aby program się nie wywalał
 def cat_pose(landmarks, mp_pose):
-    return False
+    # Głowa w dół, plecy wygięte w górę (koci grzbiet)
+    l_sh = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER]
+    l_hip = landmarks[mp_pose.PoseLandmark.LEFT_HIP]
+    l_knee = landmarks[mp_pose.PoseLandmark.LEFT_KNEE]
+    nose = landmarks[mp_pose.PoseLandmark.NOSE]
+
+    hip_angle = calculate_angle(l_sh, l_hip, l_knee)
+    # W kocie głowa jest wyraźnie niżej niż linia barków
+    return 70 < hip_angle < 110 and nose.y > l_sh.y
 
 
 def downward_facing_pose(landmarks, mp_pose):
-    return False
+    # Odwrócone "V" - biodra są najwyższym punktem ciała
+    l_sh = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER]
+    l_hip = landmarks[mp_pose.PoseLandmark.LEFT_HIP]
+    l_wr = landmarks[mp_pose.PoseLandmark.LEFT_WRIST]
+    l_ank = landmarks[mp_pose.PoseLandmark.LEFT_ANKLE]
+
+    # Biodra muszą być powyżej barków i kostek (pamiętaj: mniejszy y = wyżej na ekranie)
+    is_v_shape = l_hip.y < l_sh.y and l_hip.y < l_ank.y
+    # Kąt w biodrze powinien być ostry
+    hip_angle = calculate_angle(l_sh, l_hip, l_ank)
+
+    return is_v_shape and 40 < hip_angle < 90
 
 
 def upward_facing_pose(landmarks, mp_pose):
-    return False
+    # Klatka piersiowa w górę, nogi proste na ziemi, biodra nisko
+    l_sh = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER]
+    l_hip = landmarks[mp_pose.PoseLandmark.LEFT_HIP]
+    l_wr = landmarks[mp_pose.PoseLandmark.LEFT_WRIST]
+    l_knee = landmarks[mp_pose.PoseLandmark.LEFT_KNEE]
+
+    # Ramiona wyprostowane (kąt w łokciu ok 180)
+    # Głowa wysoko nad biodrami
+    chest_up = l_sh.y < l_hip.y
+    straight_legs = calculate_angle(l_hip, l_knee, landmarks[mp_pose.PoseLandmark.LEFT_ANKLE]) > 150
+
+    return chest_up and straight_legs and l_wr.y > l_sh.y
 
 
 def child_facing_pose(landmarks, mp_pose):
-    return False
+    # Klatka piersiowa na udach, czoło przy ziemi, biodra na piętach
+    l_sh = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER]
+    l_hip = landmarks[mp_pose.PoseLandmark.LEFT_HIP]
+    l_knee = landmarks[mp_pose.PoseLandmark.LEFT_KNEE]
+
+    # Bardzo ostry kąt w kolanie (biodra na piętach)
+    knee_angle = calculate_angle(l_hip, l_knee, landmarks[mp_pose.PoseLandmark.LEFT_ANKLE])
+    # Barki bardzo nisko, blisko bioder w osi pionowej
+    compact = abs(l_sh.y - l_knee.y) < 0.2
+
+    return knee_angle < 60 and compact

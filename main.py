@@ -5,11 +5,7 @@ import cv2
 import mediapipe as mp
 from PyQt6.QtWidgets import QApplication, QWidget, QPushButton, QLabel, QVBoxLayout
 from PyQt6.QtCore import Qt
-
-# --- KONFIGURACJA MEDIAPIPE ---
-mp_pose = mp.solutions.pose
-mp_drawing = mp.solutions.drawing_utils
-pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
+import poses  # Importujemy Twój plik z logiką pozycji
 
 # --- KONFIGURACJA GŁOSU ---
 engine = pyttsx3.init()
@@ -25,29 +21,10 @@ def say_and_print(text):
     speak(text)
 
 
-# --- LOGIKA POZ (COW POSE) ---
-def check_cow_pose(landmarks):
-    # Punkty kluczowe (używamy lewej strony ciała - zał. ustawienie bokiem)
-    l_sh = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER]
-    l_hip = landmarks[mp_pose.PoseLandmark.LEFT_HIP]
-    l_knee = landmarks[mp_pose.PoseLandmark.LEFT_KNEE]
-    l_wr = landmarks[mp_pose.PoseLandmark.LEFT_WRIST]
-    nose = landmarks[mp_pose.PoseLandmark.NOSE]
-
-    # 1. Głowa uniesiona (nos powyżej linii barków)
-    head_up = nose.y < l_sh.y
-
-    # 2. Plecy wklęsłe (uproszczenie: bark i biodro w podobnej linii poziomej)
-    back_alignment = abs(l_sh.y - l_hip.y) < 0.15
-
-    # 3. Ramiona proste pod barkami (pionowa linia X)
-    arms_vertical = abs(l_sh.x - l_wr.x) < 0.1
-
-    # 4. Uda pionowo (biodro nad kolanem)
-    legs_vertical = abs(l_hip.x - l_knee.x) < 0.1
-
-    return head_up and back_alignment and arms_vertical and legs_vertical
-
+# --- KONFIGURACJA MEDIAPIPE ---
+mp_pose = mp.solutions.pose
+mp_drawing = mp.solutions.drawing_utils
+pose_detector = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
 
 # --- GUI PyQt6 ---
 app = QApplication([])
@@ -65,7 +42,9 @@ status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 status_label.setStyleSheet("font-size: 14px; color: red;")
 
 start_button = QPushButton("Start treningu")
+start_button.setStyleSheet("padding: 10px; font-size: 14px;")
 stop_button = QPushButton("Zatrzymaj")
+stop_button.setStyleSheet("padding: 10px; font-size: 14px;")
 
 layout.addWidget(title)
 layout.addSpacing(20)
@@ -75,15 +54,17 @@ layout.addWidget(start_button)
 layout.addWidget(stop_button)
 window.setLayout(layout)
 
+# --- LOGIKA STEROWANIA ---
 running = False
 
 
 def start_training():
-    global running
+    global running, last_pose_change_time
     running = True
+    last_pose_change_time = time.time()
     status_label.setText("Status: START")
     status_label.setStyleSheet("font-size: 14px; color: green;")
-    print("Rozpoczynam trening")
+    say_and_print("Rozpoczynamy trening. Pierwsza pozycja: Cow Pose")
 
 
 def stop_training():
@@ -91,6 +72,7 @@ def stop_training():
     running = False
     status_label.setText("Status: STOP")
     status_label.setStyleSheet("font-size: 14px; color: red;")
+    say_and_print("Zakończono trening")
     exit(0)
 
 
@@ -99,55 +81,75 @@ stop_button.clicked.connect(stop_training)
 
 window.show()
 
-# --- PĘTLA GŁÓWNA ---
+# --- PĘTLA GŁÓWNA TRENERA ---
 cap = cv2.VideoCapture(0)
-pose_list = ["Cow Pose", "Cat Pose", "Downward Dog"]
+pose_list = ["Cow Pose", "Cat Pose", "Downward Facing Dog", "Upward Facing Dog", "Child Pose"]
 current_pose_index = 0
+pose_time = 20  # Czas trwania jednej pozycji w sekundach
 last_pose_change_time = time.time()
-pose_duration = 15  # sekundy na każdą pozę
 
 while cap.isOpened():
-    app.processEvents()  # Obsługa przycisków GUI
+    # Obsługa zdarzeń GUI (żeby przyciski działały w trakcie pętli)
+    app.processEvents()
 
     ret, frame = cap.read()
-    if not ret: break
+    if not ret:
+        break
+
     frame = cv2.flip(frame, 1)
 
     if running:
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results = pose.process(rgb)
+        results = pose_detector.process(rgb)
 
-        current_gesture = pose_list[current_pose_index]
+        gesture = pose_list[current_pose_index]
         is_correct = False
 
         if results.pose_landmarks:
             landmarks = results.pose_landmarks.landmark
 
-            # Sprawdzanie konkretnej pozy
-            if current_gesture == "Cow Pose":
-                is_correct = check_cow_pose(landmarks)
+            # 1. Sprawdzanie pozycji przy użyciu pliku poses.py
+            if gesture == "Cow Pose":
+                is_correct = poses.cow_pose(landmarks, mp_pose)
+            elif gesture == "Cat Pose":
+                is_correct = poses.cat_pose(landmarks, mp_pose)
+            elif gesture == "Downward Facing Dog":
+                is_correct = poses.downward_facing_pose(landmarks, mp_pose)
+            elif gesture == "Upward Facing Dog":
+                is_correct = poses.upward_facing_pose(landmarks, mp_pose)
+            elif gesture == "Child Pose":
+                is_correct = poses.child_facing_pose(landmarks, mp_pose)
 
-            # Rysowanie szkieletu
-            mp_drawing.draw_landmarks(frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
+            # 2. Rysowanie szkieletu na obrazie
+            mp_drawing.draw_landmarks(
+                frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS,
+                mp_drawing.DrawingSpec(color=(245, 117, 66), thickness=2, circle_radius=2),
+                mp_drawing.DrawingSpec(color=(245, 66, 230), thickness=2, circle_radius=2)
+            )
 
-            # Feedback wizualny
+            # 3. Wyświetlanie informacji o poprawności
             color = (0, 255, 0) if is_correct else (0, 0, 255)
-            msg = "POZYCJA POPRAWNA" if is_correct else "POPRAW SIE"
-            cv2.putText(frame, msg, (30, 110), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+            msg = "POZYCJA OK!" if is_correct else "POPRAW SIE"
+            cv2.putText(frame, msg, (30, 110), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 3)
 
-        # Wyświetlanie aktualnej pozy i czasu
-        cv2.putText(frame, f"Poza: {current_gesture}", (30, 60),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255), 2)
+        # 4. Logika czasu i zmiany pozycji
+        elapsed = time.time() - last_pose_change_time
+        remaining = int(pose_time - elapsed)
 
-        # Logika zmiany pozy
-        if time.time() - last_pose_change_time > pose_duration:
+        if elapsed > pose_time:
             current_pose_index = (current_pose_index + 1) % len(pose_list)
             last_pose_change_time = time.time()
-            say_and_print(f"Zmień pozę na: {pose_list[current_pose_index]}")
+            say_and_print(f"Czas na {pose_list[current_pose_index]}")
 
-    cv2.imshow("Kamera Trenera", frame)
+        # 5. UI na obrazie kamery
+        cv2.putText(frame, f"Poza: {gesture}", (30, 60),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.2, (151, 33, 64), 3)
+        cv2.putText(frame, f"Czas: {remaining}s", (30, 160),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
 
-    if cv2.waitKey(1) & 0xFF == 27:  # ESC
+    cv2.imshow("Trener Yogi", frame)
+
+    if cv2.waitKey(1) & 0xFF == 27:  # Wyjście przez ESC
         break
 
 cap.release()
