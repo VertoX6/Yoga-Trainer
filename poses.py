@@ -42,8 +42,7 @@ def cat_pose(landmarks, mp_pose):
     #rece pionowo pod barkami
     arms_aligned = abs(l_sh.x - l_wr.x) < 0.15
     #zaokraglone plecy
-    # rounded_back = hip_angle < 70
-    if head_down and arms_aligned:
+    if 70 < hip_angle < 110 and head_down and arms_aligned:
         return True
     return False
 
