@@ -174,6 +174,8 @@ while cap.isOpened():
 
         if gesture == "Cow Pose":
             is_correct = check_cow_pose(landmarks)
+        elif gesture == "Cat Pose":
+            is_correct = poses.cat_pose(landmarks, mp_pose)
 
         #rysowanie
         mp_drawing.draw_landmarks(
@@ -186,7 +188,7 @@ while cap.isOpened():
 
         cv2.putText(frame, msg, (30, 160),
                     cv2.FONT_HERSHEY_SIMPLEX, 1,
-                    (0, 0, 0), 6)
+                    (0, 0, 0), 8)
         cv2.putText(frame, msg, (30, 160),
                     cv2.FONT_HERSHEY_SIMPLEX, 1,
                     color, 3)
@@ -205,11 +207,11 @@ while cap.isOpened():
     cv2.putText(frame, f"Aktualna Poza: {gesture}", (30, 60),
                 cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 0), 8)
     cv2.putText(frame, f"Nastepna poza: {next_pose}", (30, 210),
-                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 6)
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 8)
     cv2.putText(frame, f"Aktualna Poza: {gesture}", (30, 60),
                 cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 105, 180), 4)
     cv2.putText(frame, time_text, (30, 110),
-                cv2.FONT_HERSHEY_SIMPLEX, 1.1, (0, 0, 0), 6)
+                cv2.FONT_HERSHEY_SIMPLEX, 1.1, (0, 0, 0), 8)
     cv2.putText(frame, time_text, (30, 110),
                 cv2.FONT_HERSHEY_SIMPLEX, 1.1, (186, 85, 211), 3)
     cv2.putText(frame, f"Nastepna poza: {next_pose}", (30, 210),

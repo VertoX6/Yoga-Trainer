@@ -8,7 +8,6 @@ def calculate_angle(a, b, c):
 
     radians = np.arctan2(c[1] - b[1], c[0] - b[0]) - np.arctan2(a[1] - b[1], a[0] - b[0])
     angle = np.abs(radians * 180.0 / np.pi)
-
     if angle > 180.0:
         angle = 360 - angle
     return angle
@@ -20,12 +19,9 @@ def cow_pose(landmarks, mp_pose):
     l_knee = landmarks[mp_pose.PoseLandmark.LEFT_KNEE]
     l_wr = landmarks[mp_pose.PoseLandmark.LEFT_WRIST]
     nose = landmarks[mp_pose.PoseLandmark.NOSE]
-
-    # kat w biodrze
+    #kat biodra
     hip_angle = calculate_angle(l_sh, l_hip, l_knee)
-
     head_up = nose.y < l_sh.y
-
     #czy ramiona proste
     arms_aligned = abs(l_sh.x - l_wr.x) < 0.15
     if 70 < hip_angle < 110 and head_up and arms_aligned:
@@ -34,6 +30,21 @@ def cow_pose(landmarks, mp_pose):
 
 
 def cat_pose(landmarks, mp_pose):
+    l_sh = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER]
+    l_hip = landmarks[mp_pose.PoseLandmark.LEFT_HIP]
+    l_knee = landmarks[mp_pose.PoseLandmark.LEFT_KNEE]
+    l_wr = landmarks[mp_pose.PoseLandmark.LEFT_WRIST]
+    nose = landmarks[mp_pose.PoseLandmark.NOSE]
+    #kat biodro
+    hip_angle = calculate_angle(l_sh, l_hip, l_knee)
+    #glowa w dol
+    head_down = nose.y > l_sh.y
+    #rece pionowo pod barkami
+    arms_aligned = abs(l_sh.x - l_wr.x) < 0.15
+    #zaokraglone plecy
+    # rounded_back = hip_angle < 70
+    if head_down and arms_aligned:
+        return True
     return False
 
 
