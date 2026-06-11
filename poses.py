@@ -48,12 +48,44 @@ def cat_pose(landmarks, mp_pose):
 
 
 def downward_facing_pose(landmarks, mp_pose):
-    return False
+    sh = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER]
+    hip = landmarks[mp_pose.PoseLandmark.LEFT_HIP]
+    ank = landmarks[mp_pose.PoseLandmark.LEFT_ANKLE]
+    elbow = landmarks[mp_pose.PoseLandmark.LEFT_ELBOW]
+    wrist = landmarks[mp_pose.PoseLandmark.LEFT_WRIST]
+    hip_angle = calculate_angle(sh, hip, ank)
+    arm_angle = calculate_angle(sh, elbow, wrist)
+    return (
+        70 < hip_angle < 110 and
+        arm_angle > 150
+    )
 
 
 def upward_facing_pose(landmarks, mp_pose):
-    return False
+    nose = landmarks[mp_pose.PoseLandmark.NOSE]
+    sh = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER]
+    hip = landmarks[mp_pose.PoseLandmark.LEFT_HIP]
+    knee = landmarks[mp_pose.PoseLandmark.LEFT_KNEE]
 
+    elbow = landmarks[mp_pose.PoseLandmark.LEFT_ELBOW]
+    wrist = landmarks[mp_pose.PoseLandmark.LEFT_WRIST]
+    back_angle = calculate_angle(sh, hip, knee)
+    arm_angle = calculate_angle(sh, elbow, wrist)
+    head_up = nose.y < sh.y
+    arms_straight = arm_angle > 150
+    return (
+        head_up and
+        arms_straight and
+        120 < back_angle < 180
+    )
 
 def child_facing_pose(landmarks, mp_pose):
-    return False
+    sh = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER]
+    hip = landmarks[mp_pose.PoseLandmark.LEFT_HIP]
+    knee = landmarks[mp_pose.PoseLandmark.LEFT_KNEE]
+    nose = landmarks[mp_pose.PoseLandmark.NOSE]
+    hip_angle = calculate_angle(sh, hip, knee)
+    return (
+        hip_angle < 60 and
+        nose.y > sh.y
+    )

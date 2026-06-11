@@ -176,6 +176,12 @@ while cap.isOpened():
             is_correct = check_cow_pose(landmarks)
         elif gesture == "Cat Pose":
             is_correct = poses.cat_pose(landmarks, mp_pose)
+        elif gesture == "Downward Facing Dog":
+            is_correct = poses.downward_facing_pose(landmarks, mp_pose)
+        elif gesture == "Upward Facing Dog":
+            is_correct = poses.upward_facing_pose(landmarks, mp_pose)
+        elif gesture == "Child Pose":
+            is_correct = poses.child_facing_pose(landmarks, mp_pose)
 
         #rysowanie
         mp_drawing.draw_landmarks(
