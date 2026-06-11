@@ -201,7 +201,7 @@ while cap.isOpened():
 
     next_pose_index = (current_pose_index + 1) % len(pose_list)
     next_pose = pose_list[next_pose_index]
-    pose_image_list = ["./cow_pose.png", "./cat_pose.png", "./downward_dog.png", "./upward_dog.png", "./child_pose.png"]
+    pose_image_list = ["images/cow_pose.png", "images/cat_pose.png", "images/downward_dog.png", "images/upward_dog.png", "images/child_pose.png"]
 
     # wybor obrazka
     if is_changing_pose:
