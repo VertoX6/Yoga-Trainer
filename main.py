@@ -201,6 +201,23 @@ while cap.isOpened():
 
     next_pose_index = (current_pose_index + 1) % len(pose_list)
     next_pose = pose_list[next_pose_index]
+    pose_image_list = ["./cow_pose.png", "./cat_pose.png", "./downward_dog.png", "./upward_dog.png", "./child_pose.png"]
+
+    # wybor obrazka
+    if is_changing_pose:
+        image_index = next_pose_index
+    else:
+        image_index = current_pose_index
+
+    pose_image = cv2.imread(pose_image_list[image_index])
+    if pose_image is not None:
+        image_width = 200
+        image_height = 150
+        pose_image = cv2.resize(pose_image, (image_width, image_height))
+        h, w, _ = frame.shape
+        padding_right = 30
+        x = w - image_width - padding_right
+        frame[50:50+image_height, x:x+image_width] = pose_image
 
     if not is_changing_pose:
         change_remaining = 0
